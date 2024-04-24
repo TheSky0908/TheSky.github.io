@@ -1,0 +1,379 @@
+---
+title: "cfa"
+author: "12111603 谭致恒"
+date: "2024-02-26"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    theme: spacelab
+ 
+---
+
+<style>
+body {
+  font-family: 'Times New Roman', sans-serif;
+  font-size: 24px;
+  color: black;
+  
+}
+</style>
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 导入数据并查看NA
+```{r}
+data <- read.csv("C:/Users/Lenovo/Desktop/gzdata.csv")
+
+summary(data)
+table(is.na(data))
+data <- data[ ,-1]
+```
+
+
+# 相关系数及其显著性的热力图
+
+```{r}
+library(ggcorrplot)
+input <- data
+
+cor <- round(cor(input), 3)
+p <- cor_pmat(input)
+ggcorrplot(cor,hc.order = T,  #分等级聚类重排矩阵
+           ggtheme = ggplot2::theme_void(base_size = 15), #主题修改
+           colors = c("CornflowerBlue","white","Salmon"), #自定义颜色，看自己喜欢，或是参考好看的文献Figure用法。
+           lab = T,lab_size = 1,   #相关系数文本字体大小
+           tl.cex = 4,            #坐标轴字体大小
+           p.mat = p,        #添加显著性信息
+           sig.level = 0.05,       #显著性水平
+           pch = 4,                #不够显著的色块进行标记，pch表示选择不同的标记方法，可以尝试其他数字表示什么标记方法
+           pch.cex = 1)     
+
+
+
+```
+
+
+# PCA
+```{r}
+pca.result <- prcomp(data, scale = TRUE)
+summary(pca.result)
+plot(pca.result)
+biplot(pca.result)
+
+```
+
+
+
+# PCA + Varimax
+```{r}
+library(psych)
+
+# 进行主成分分析
+pca_result <- principal(data, nfactors = 4, rotate = "none")
+
+# 应用Varimax旋转
+varimax_result <- varimax(pca_result$loadings)
+
+# 绘制因子分析图
+fa.diagram(varimax_result$loadings, main = "Factor Analysis after Varimax Rotation")
+
+
+
+
+```
+
+
+
+# EFA
+## EFA前戏
+
+```{r, warning=FALSE}
+library(sjPlot)
+sjt.itemanalysis(data)
+
+library(psych)
+cortest.bartlett(data)
+# p-value < 0.001，适合EFA
+
+KMO(data[c(23,19, 4,17,15,42,27,38,18,5,16)])
+# 矩阵奇异，导致所有结果都是0.5
+
+myparallel <- fa.parallel(data, fa = "fa")
+abline(h = 1)
+# 根据平行分析，保留五个因子（潜变量）
+
+
+# 另外一种平行分析
+library(nFactors)
+ev <- eigen(cor(data)) # 获取特征值
+ap <- parallel(subject=nrow(data),var=ncol(data),
+  rep=100,cent=.05) # subject指样本个数，var是指变量个数
+nS <- nScree(x=ev$values, aparallel=ap$eigen$qevpea) # 确定探索性因子分析中应保留的因子
+plotnScree(nS) # 绘制碎石图
+
+
+
+```
+
+
+前置检验通过，适合五因子。
+
+
+## EFA过程（五因子）
+
+```{r, echo=FALSE, include=FALSE}
+library(GPArotation)
+fa5.1data <- data
+fa5.1m <- fa(fa5.1data, nfactors = 5, rotate = "oblimin")
+fa5.1m
+
+#Warning: Matrix was not positive definite, smoothing was doneIn factor.scores, the correlation matrix is singular, the pseudo inverse is  used
+
+#In smc, smcs < 0 were set to .0
+#In smc, smcs < 0 were set to .0
+
+fa5.2data <- fa5.1data[ ,-c(5,6,16,18,22,24,42,45)]
+fa5.2m <- fa(fa5.2data, nfactors = 5, rotate = "oblimin")
+fa5.2m
+
+
+
+fa5.3data <- fa5.2data[ ,-c(37,38)]
+fa5.3m <- fa(fa5.3data, nfactors = 5, rotate = "oblimin")
+fa5.3m
+
+
+
+fa5.4data <- fa5.3data[ ,-c(1:4,6,8,10,14,20,22,24:29,33:35)]
+fa5.4m <- fa(fa5.4data, nfactors = 5, rotate = "oblimin")
+fa5.4m
+
+
+
+CFI <- 1 - (fa5.4m$STATISTIC-fa5.4m$dof)/(fa5.4m$null.chisq - fa5.4m$null.dof) 
+CFI
+
+factor.plot(fa5.4m, labels = rownames(fa5.4m$loadings))
+
+fa.diagram(fa5.4m, digits = 3)
+# digits = 3表示保留3为小数
+
+```
+
+
+
+
+## EFA过程（四因子）
+
+```{r, echo=FALSE, include=FALSE}
+library(GPArotation)
+fa4.1data <- data
+fa4.1m <- fa(fa4.1data, nfactors = 4, rotate = "oblimin")
+fa4.1m
+
+#Warning: Matrix was not positive definite, smoothing was doneIn factor.scores, the correlation matrix is singular, the pseudo inverse is  used
+
+#In smc, smcs < 0 were set to .0
+#In smc, smcs < 0 were set to .0
+
+
+fa4.2data <- fa4.1data[ ,-c(1,6,17,20,22,24,42:45)]
+fa4.2m <- fa(fa4.2data, nfactors = 4, rotate = "oblimin")
+fa4.2m
+
+
+fa4.3data <- fa4.2data[ ,-c(36)]
+fa4.3m <- fa(fa4.3data, nfactors = 4, rotate = "oblimin")
+fa4.3m
+
+
+fa4.4data <- fa4.3data[ ,-c(1:4,6,8,10,14,15,19,20,22:29,32)]
+fa4.4m <- fa(fa4.4data, nfactors = 4, rotate = "oblimin")
+fa4.4m
+
+CFI <- 1 - (fa5.4m$STATISTIC-fa5.4m$dof)/(fa5.4m$null.chisq - fa5.4m$null.dof) 
+CFI
+
+factor.plot(fa5.4m, labels = rownames(fa5.4m$loadings))
+
+fa.diagram(fa5.4m, digits = 3)
+# digits = 3表示保留3为小数
+
+```
+
+
+## CFA Based on EFA
+```{r}
+#print(fa4.6m, sort  = TRUE)
+
+latent variable
+library(lavaan)
+ramodel <- "lv1 =~ Var_swing_asymmetry + Var_double_support + Var_stride_duration_asymmetry + Var_step_duration_asymmetry + Var_step_duration + Mean_double_support_asymmetry + Var_stance_asymmetry + Var_swing + Var_double_support_asymmetry + Var_terminal_double_support  + Var_terminal_double_support_asymmetry + Mean_stride_duration_asymmetry+ Var_stride_duration + Var_stance + Mean_terminal_double_support_asymmetry + Var_cadence 
+
+lv2 =~ Mean_double_support + Mean_initial_double_support + Mean_stance + Mean_terminal_double_support + Mean_stride_duration + Mean_step_duration 
+
+lv3 =~ Var_step_length + Var_stride_length + Var_gait_speed + Mean_stride_length + Mean_step_length 
+
+lv4 =~ Mean_single_limb_support + Mean_single_limb_support_asymmetry + Var_single_limb_support + Var_single_limb_support_asymmetry
+"
+
+ramodel.fit <- cfa(ramodel, data = fa4.6data)
+summary(ramodel.fit, standardized = TRUE, 
+                  fit.measures = TRUE, rsquare = TRUE )
+
+
+
+library(semPlot)
+semPaths(ramodel.fit, what = "path", whatLabels = "stand", style = "lisrel", layout = "tree2", rotation = 2, color = "lightblue", nCharNodes = 0)
+
+
+
+library(semTools)
+reliability(ramodel.fit)
+
+```
+
+
+
+
+
+## factor = 5
+```{r, include=FALSE, echo=FALSE}
+library(GPArotation)
+fa5.1data <- data
+fa5.1m <- fa(fa5.1data, nfactors = 5, rotate = "oblimin")
+fa5.1m
+
+
+fa5.2data <- fa5.1data[ ,-c(6, 22, 24, 42:46)]
+fa5.2m <- fa(fa5.2data, nfactors = 5, rotate = "oblimin")
+fa5.2m
+
+
+fa5.3data <- fa5.2data[ ,-c(16,24, 37)]
+fa5.3m <- fa(fa5.3data, nfactors = 5, rotate = "oblimin")
+fa5.3m
+
+
+fa5.4data <- fa5.3data[ ,-c(7, 29)]
+fa5.4m <- fa(fa5.4data, nfactors = 5, rotate = "oblimin")
+fa5.4m
+
+fa5.5data <- fa5.4data[ ,c(6,7,9, 11:13, 16,18:21,23,24,27:31,33)]
+fa5.5m <- fa(fa5.5data, nfactors = 5, rotate = "oblimin")
+fa5.5m
+
+
+CFIf <- function(x){
+cfi.result <- 1 - (x$STATISTIC-x$dof)/(x$null.chisq - x$null.dof)
+print(cfi.result)
+}
+
+CFIf(fa5.4m)
+
+
+```
+
+
+
+
+
+# CFA
+```{r}
+
+#colnames(data)
+
+library(lavaan)
+ramodel <- "lv1 =~ Mean_gait_speed + Mean_step_length + Var_swing 
+
+lv2 =~ Mean_step_duration + Mean_swing + Mean_stance
+
+lv3 =~ Var_gait_speed + Var_step_length + Var_step_duration + Var_stance
+
+lv4 =~ Mean_swing_asymmetry + Mean_step_duration_asymmetry + Mean_stance_asymmetry
+
+lv5 =~ Mean_step_length_asymmetry 
+
+"
+
+ramodel.fit <- cfa(ramodel, data = data)
+summary(ramodel.fit, standardized = TRUE, 
+                  fit.measures = TRUE, rsquare = TRUE )
+
+
+
+library(semPlot)
+semPaths(ramodel.fit, what = "path", whatLabels = "stand", style = "lisrel", layout = "tree2", rotation = 2, color = "lightblue", nCharNodes = 0)
+
+
+
+library(semTools)
+reliability(ramodel.fit)
+
+
+```
+
+
+# t-SNE
+```{r}
+library(Rtsne)
+
+tsne <- Rtsne(as.matrix(data), check_duplicates = FALSE, pca = TRUE,
+              perplexity=2, theta=0.0, dims=2)
+#将降维后需要的结果转为数据框形式
+jiangwei <- as.data.frame(tsne$Y)
+
+plot(tsne$Y)
+#将特征变量加入降维后的数据框
+jiangwei$Class<-data$target
+#查看种类个数为9，定义9种颜色
+length(unique(jiangwei$Class))
+mainPalette <- rainbow(9)
+#绘制降维后图形
+ggplot(jiangwei, aes(x=V1, y=V2, color=Class)) +
+  geom_point(size=1.25) +
+  labs(title = "t-SNE算法降到2维",
+       x = "降维后标签1",
+       y = "降维后标签2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+
+# SEM
+```{r}
+library(lavaan)
+library(haven)
+library(Hmisc)
+library(semPlot)
+
+df = scale(data, center = TRUE, scale = TRUE)
+model <- '
+Pace =~ Mean_gait_speed + Mean_step_length + Var_swing
+Rhythm =~ Mean_step_duration + Mean_swing + Mean_stance
+Variablity =~ Var_gait_speed + Var_step_length + Var_step_duration + Var_stance 
+Asymmetry =~ Mean_swing_asymmetry + Mean_step_duration_asymmetry + Mean_stance_asymmetry
+'
+
+fit <- sem(model = model, data = df)
+```
+
+
+```{r}
+1 - pf(121/81, 16,18)
+qf(0.95, df1 = 16, df2 = 18)
+qt(0.975,34)
+
+pnorm(qnorm(0.95) - 0.5/sqrt(1/17 + 1/19))
+
+16*(qnorm(0.95) - qnorm(0.2))^2
+```
+
+
